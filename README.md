@@ -9,6 +9,6 @@
    To install the mod, download the latest release .zip and extract it to "C:\Program Files (x86)\Steam\steamapps\common\Orbitous\BepInEx\plugins" (Or OS equivalent)<br><img width="561" height="138" alt="Screenshot_20260912_232339" src="https://github.com/user-attachments/assets/39201ebe-7616-4cd3-92a0-57e801f99758" /> 
 
 <h3><b>3. Start Playing</b></h3>
-   Place Music in the OrbitousMusic folder, and it will automatically play
+   Place .wav files in the OrbitousMusic folder, and it will automatically play in place of other music
 
 <br><h2><b> AI DISCLAIMER: MOST IF NOT ALL CODE IN THIS MOD IS AI-GENERATED </b></h3>
