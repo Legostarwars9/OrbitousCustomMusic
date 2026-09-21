@@ -122,4 +122,44 @@ public class OrbitousMusicMod : BaseUnityPlugin
             __instance.sounds = (dynamic)newArray;
         }
     }
+    // Hook into musicManager to inject our dynamic song keys into the playlist array
+    [HarmonyPatch(typeof(musicManager), "Awake")]
+    public class MusicManagerAwakePatch
+    {
+        // A "Postfix" runs immediately AFTER musicManager finishes its native Awake processing
+        static void Postfix(musicManager __instance)
+        {
+            // If we didn't discover any local .wav files, change nothing
+            if (customSongNames == null || customSongNames.Count == 0) return;
+
+            // Secure references to the original string array
+            string[] originalPlaylist = __instance.songs;
+
+            // Handle the case where the game's original array might be unassigned or empty
+            int originalLength = originalPlaylist != null ? originalPlaylist.Length : 0;
+
+            // Allocate space for the original game tracks + our dynamic directory files
+            string[] expandedPlaylist = new string[originalLength + customSongNames.Count];
+
+            // If the game had existing tracks, copy them over first
+            if (originalLength > 0)
+            {
+                Array.Copy(originalPlaylist, expandedPlaylist, originalLength);
+            }
+
+            // Append our dynamic song names to the end of the new array
+            for (int i = 0; i < customSongNames.Count; i++)
+            {
+                expandedPlaylist[originalLength + i] = customSongNames[i];
+            }
+
+            // Overwrite the manager's playlist variable reference with our combined array
+            __instance.songs = expandedPlaylist;
+
+            // Log out to the console to confirm everything hooked perfectly
+            BepInEx.Logging.Logger.CreateLogSource("OrbitousMusicPatch")
+                .LogInfo($"Injected {customSongNames.Count} new tracks into musicManager's active background rotation!");
+        }
+    }
+
 }
