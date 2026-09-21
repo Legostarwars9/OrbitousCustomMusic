@@ -1,0 +1,2 @@
+/var/home/Jacob/RiderProjects/OrbitousCustomMusic/OrbitousCustomMusic/obj/Debug/OrbitousCustomMusic.csproj.AssemblyReference.cache
+/var/home/Jacob/RiderProjects/OrbitousCustomMusic/OrbitousCustomMusic/obj/Debug/OrbitousCustomMusic.csproj.CoreCompileInputs.cache

@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 
-[BepInPlugin("com.username.orbitousmusic", "Orbitous Dynamic Music", "1.0.0")]
+[BepInPlugin("com.legostarwars9.orbitousmusic", "OrbitousCusomMusic", "1.0.0")]
 public class OrbitousMusicMod : BaseUnityPlugin
 {
     private static List<AudioClip> customClips = new List<AudioClip>();
