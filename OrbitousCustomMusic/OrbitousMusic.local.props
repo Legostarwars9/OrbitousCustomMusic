@@ -1,0 +1,5 @@
+<Project>
+    <PropertyGroup>
+        <OrbitUsGameDir>/home/Jacob/.steam/steam/steamapps/common/Orbitous</OrbitUsGameDir>
+    </PropertyGroup>
+</Project>
