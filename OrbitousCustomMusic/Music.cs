@@ -47,7 +47,7 @@ public class OrbitousMusicMod : BaseUnityPlugin
 
         if (customClips.Count > 0)
         {
-            var harmony = new Harmony("com.username.orbitousmusic");
+            var harmony = new Harmony("com.legostarwars9.orbitousmusic");
             harmony.PatchAll();
             Logger.LogInfo($"Successfully hooked audioManager with {customClips.Count} native tracks!");
         }
