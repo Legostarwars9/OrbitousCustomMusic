@@ -1,12 +1,11 @@
 using BepInEx;
 using HarmonyLib;
 using UnityEngine;
-using UnityEngine.Networking;
 using System;
 using System.IO;
 using System.Collections.Generic;
 
-[BepInPlugin("com.legostarwars9.orbitousmusic", "OrbitousCusomMusic", "1.0.0")]
+[BepInPlugin("com.legostarwars9.orbitousmusic", "OrbitousCustomMusic", "1.0.0")]
 public class OrbitousMusicMod : BaseUnityPlugin
 {
     private static List<AudioClip> customClips = new List<AudioClip>();
@@ -14,10 +13,8 @@ public class OrbitousMusicMod : BaseUnityPlugin
 
     void Awake()
     {
-        // 1. Establish path to your specific mod folder
         string modFolder = Path.Combine(Paths.PluginPath, "OrbitousMusic");
 
-        // Create the directory automatically if a player boots the game without it
         if (!Directory.Exists(modFolder))
         {
             Directory.CreateDirectory(modFolder);
@@ -25,57 +22,78 @@ public class OrbitousMusicMod : BaseUnityPlugin
             return; 
         }
 
-        // 2. Scan the directory for all .wav files
         string[] audioFiles = Directory.GetFiles(modFolder, "*.wav");
 
-        if (audioFiles.Length == 0)
-        {
-            Logger.LogInfo("No custom .wav songs found in the OrbitousMusic folder.");
-            return;
-        }
-
-        // 3. Loop through and load every found file dynamically
         foreach (string filePath in audioFiles)
         {
-            // Extracts "MySong" from "BepInEx/plugins/OrbitousMusic/MySong.wav"
             string cleanSongName = Path.GetFileNameWithoutExtension(filePath);
             
-            LoadSong(filePath, cleanSongName);
+            try
+            {
+                // Load using clean .NET file streaming—bypassing all UnityWebRequest/WWW modules
+                AudioClip clip = LoadWavAsAudioClip(filePath, cleanSongName);
+                if (clip != null)
+                {
+                    customClips.Add(clip);
+                    customSongNames.Add(cleanSongName);
+                    Logger.LogInfo($"Dynamically loaded via native stream: {cleanSongName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed parsing wav structure for {cleanSongName}: {ex.Message}");
+            }
         }
 
-        // 4. Initialize Harmony if we successfully queued up assets
         if (customClips.Count > 0)
         {
             var harmony = new Harmony("com.username.orbitousmusic");
             harmony.PatchAll();
-            Logger.LogInfo($"Successfully hooked audioManager with {customClips.Count} dynamic songs!");
+            Logger.LogInfo($"Successfully hooked audioManager with {customClips.Count} native tracks!");
         }
     }
 
-    private void LoadSong(string absolutePath, string songName)
+    // Hand-parses a standard uncompressed PCM .wav file directly into a Unity AudioClip
+    private static AudioClip LoadWavAsAudioClip(string filePath, string clipName)
     {
-        using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip("file://" + absolutePath, AudioType.WAV))
-        {
-            www.SendWebRequest();
-            while (!www.isDone) { } // Synchronous hold for initialization processing
+        byte[] wavData = File.ReadAllBytes(filePath);
 
-            if (www.result == UnityWebRequest.Result.Success)
+        // Standard WAV headers locate channels at byte 22, and sample rate at byte 24
+        ushort channels = BitConverter.ToUInt16(wavData, 22);
+        int sampleRate = BitConverter.ToInt32(wavData, 24);
+
+        // Position where raw PCM audio data actually begins (usually byte 44)
+        int dataPos = 12;
+        while (dataPos < wavData.Length - 8)
+        {
+            if (wavData[dataPos] == 'd' && wavData[dataPos + 1] == 'a' && wavData[dataPos + 2] == 't' && wavData[dataPos + 3] == 'a')
             {
-                AudioClip clip = DownloadHandlerAudioClip.GetContent(www);
-                clip.name = songName;
-                
-                customClips.Add(clip);
-                customSongNames.Add(songName); // Cache name matching the clip index
-                Logger.LogInfo($"Dynamically loaded: {songName}");
+                dataPos += 4;
+                break;
             }
-            else
-            {
-                Logger.LogError($"Failed loading {songName}: {www.error}");
-            }
+            dataPos++;
         }
+
+        int subChunk2Size = BitConverter.ToInt32(wavData, dataPos);
+        dataPos += 4;
+
+        // Convert the 16-bit integer bytes into floating-point audio data (-1.0 to 1.0)
+        int sampleCount = subChunk2Size / 2; 
+        float[] audioData = new float[sampleCount];
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            short sample = BitConverter.ToInt16(wavData, dataPos + (i * 2));
+            audioData[i] = sample / 32768f; 
+        }
+
+        // Generate the native Unity structure inside memory
+        AudioClip audioClip = AudioClip.Create(clipName, sampleCount / channels, channels, sampleRate, false);
+        audioClip.SetData(audioData, 0);
+
+        return audioClip;
     }
 
-    // 5. Harmony Prefix Hook
     [HarmonyPatch(typeof(audioManager), "Awake")]
     public class AudioManagerAwakePatch
     {
@@ -86,7 +104,6 @@ public class OrbitousMusicMod : BaseUnityPlugin
             Type soundType = __instance.sounds.GetType().GetElementType();
             var originalArray = __instance.sounds;
             
-            // Allocate exact space for whatever number of songs were found in the folder
             var newArray = Array.CreateInstance(soundType, originalArray.Length + customClips.Count);
             Array.Copy(originalArray, newArray, originalArray.Length);
 

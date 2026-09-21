@@ -40,6 +40,8 @@
         <Reference Include="System.Core"/>
         <Reference Include="System.Data"/>
         <Reference Include="System.Xml"/>
+        <Reference Include="Microsoft.CSharp" />
+
     </ItemGroup>
     <ItemGroup>
         <Compile Include="Music.cs" />
@@ -114,6 +116,12 @@
         </Reference>
         <Reference Include="UnityEngine.IMGUIModule">
             <HintPath>$(OrbitUsGameDir)/OrbitousLinux_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.AudioModule">
+            <HintPath>$(OrbitUsGameDir)/OrbitousLinux_Data/Managed/UnityEngine.AudioModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.UnityWebRequestModule">
+            <HintPath>$(OrbitUsGameDir)/OrbitousLinux_Data/Managed/UnityEngine.UnityWebRequestModule.dll</HintPath>
         </Reference>
         <UnityReferences Include="$(OrbitUsGameDir)/OrbitousLinux_Data/Managed/UnityEngine*.dll" />
     </ItemGroup>
