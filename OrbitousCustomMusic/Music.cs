@@ -7,8 +7,8 @@ using System.IO;
 using System.Collections.Generic;
 
 [BepInPlugin(
-    "com.username.orbitousmusic",
-    "Orbitous Hybrid Music Manager",
+    "com.legostarwars9.orbitousmusic",
+    "OrbitousCustomMusic",
     "1.3.1"
 )]
 public class OrbitousMusicMod : BaseUnityPlugin
@@ -88,7 +88,7 @@ public class OrbitousMusicMod : BaseUnityPlugin
 
         harmony =
             new Harmony(
-                "com.username.orbitousmusic"
+                "com.legostarwars9.orbitousmusic"
             );
 
         harmony.PatchAll();
