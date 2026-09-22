@@ -42,14 +42,25 @@ public class OrbitousMusicMod : BaseUnityPlugin
     // These songs are not part of the normal background
     // ambience playlist and should always take priority.
     private static readonly HashSet<string> priorityMusic =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        new HashSet<string>
         {
             "ShopSong",
             "CoolSong",
             "ChaseSong",
-            "IntroFightSong",
             "HunterSong",
             "BlackHoleSong",
+            "IntroFightSong",
+            "CreditsSong"
+        };
+
+    private static readonly HashSet<string> loopingPriorityMusic =
+        new HashSet<string>
+        {
+            "CoolSong",
+            "ChaseSong",
+            "HunterSong",
+            "BlackHoleSong",
+            "IntroFightSong",
             "CreditsSong"
         };
 
@@ -112,7 +123,7 @@ public class OrbitousMusicMod : BaseUnityPlugin
         customMusicChance = Config.Bind(
             "Music Settings",
             "Custom Music Chance",
-            50f,
+            35f,
             new ConfigDescription(
                 "Percentage chance that a normal ambience selection uses custom music instead of vanilla music.",
                 new AcceptableValueRange<float>(
@@ -997,10 +1008,7 @@ public class OrbitousMusicMod : BaseUnityPlugin
     [HarmonyPatch(
         typeof(audioManager),
         "Play",
-        new Type[]
-        {
-            typeof(string)
-        }
+        new Type[] { typeof(string) }
     )]
     public static class AudioManagerPlayPatch
     {
@@ -1010,25 +1018,36 @@ public class OrbitousMusicMod : BaseUnityPlugin
             if (ActiveMusicManagerInstance == null)
                 return;
 
-            /*
-             * If vanilla ambience starts through another
-             * code path, stop custom music.
-             */
             if (IsNormalAmbienceSong(
-                ActiveMusicManagerInstance,
-                name))
+                    ActiveMusicManagerInstance,
+                    name))
             {
                 StopCustomMusic();
-
                 return;
             }
 
-            /*
-             * Special music always has priority.
-             */
             if (priorityMusic.Contains(name))
             {
                 StopCustomMusic();
+
+                if (loopingPriorityMusic.Contains(name))
+                {
+                    sound targetSound =
+                        Array.Find(
+                            audioManager.Instance.sounds,
+                            sound2 => sound2.name == name
+                        );
+
+                    if (targetSound != null &&
+                        targetSound.source != null)
+                    {
+                        targetSound.source.loop = true;
+                    }
+
+                    Log(
+                        $"Priority music started and set to loop: {name}"
+                    );
+                }
             }
         }
     }
