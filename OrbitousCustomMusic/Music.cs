@@ -6,13 +6,20 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 
-[BepInPlugin("com.username.orbitousmusic", "Orbitous Hybrid Music Manager", "1.3.0")]
+[BepInPlugin(
+    "com.username.orbitousmusic",
+    "Orbitous Hybrid Music Manager",
+    "1.3.1"
+)]
 public class OrbitousMusicMod : BaseUnityPlugin
 {
     private static OrbitousMusicMod Instance;
 
-    private static readonly List<AudioClip> customClips = new List<AudioClip>();
-    public static readonly List<string> customSongNames = new List<string>();
+    private static readonly List<AudioClip> customClips =
+        new List<AudioClip>();
+
+    public static readonly List<string> customSongNames =
+        new List<string>();
 
     private static readonly Dictionary<string, ConfigEntry<float>> trackWeights =
         new Dictionary<string, ConfigEntry<float>>();
@@ -30,27 +37,75 @@ public class OrbitousMusicMod : BaseUnityPlugin
 
     public static bool dynamicMusicEnabled = true;
 
+    private Harmony harmony;
+
+    // These songs are not part of the normal background
+    // ambience playlist and should always take priority.
+    private static readonly HashSet<string> priorityMusic =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ShopSong",
+            "CoolSong",
+            "ChaseSong",
+            "IntroFightSong",
+            "HunterSong",
+            "BlackHoleSong",
+            "CreditsSong"
+        };
+
     private void Awake()
     {
         Instance = this;
 
-        string modFolder = Path.Combine(Paths.PluginPath, "OrbitousMusic");
+        string modFolder =
+            Path.Combine(
+                Paths.PluginPath,
+                "OrbitousMusic"
+            );
 
         if (!Directory.Exists(modFolder))
         {
             Directory.CreateDirectory(modFolder);
-            Logger.LogInfo("Created OrbitousMusic folder.");
+
+            Logger.LogInfo(
+                "Created OrbitousMusic folder."
+            );
         }
 
         LoadConfiguration();
         LoadCustomTracks(modFolder);
 
-        new Harmony("com.username.orbitousmusic").PatchAll();
+        harmony =
+            new Harmony(
+                "com.username.orbitousmusic"
+            );
 
-        Logger.LogInfo("Orbitous Hybrid Music Manager 1.3.0 loaded.");
-        Logger.LogInfo($"Custom music chance: {customMusicChance.Value}%");
-        Logger.LogInfo($"Loaded {customSongNames.Count} custom track(s).");
+        harmony.PatchAll();
+
+        Logger.LogInfo(
+            "Orbitous Hybrid Music Manager 1.3.1 loaded."
+        );
+
+        Logger.LogInfo(
+            $"Custom music chance: {customMusicChance.Value}%"
+        );
+
+        Logger.LogInfo(
+            $"Loaded {customSongNames.Count} custom track(s)."
+        );
     }
+
+    private void OnDestroy()
+    {
+        StopCustomMusic();
+
+        if (harmony != null)
+            harmony.UnpatchSelf();
+    }
+
+    // ============================================================
+    // CONFIGURATION
+    // ============================================================
 
     private void LoadConfiguration()
     {
@@ -60,7 +115,10 @@ public class OrbitousMusicMod : BaseUnityPlugin
             50f,
             new ConfigDescription(
                 "Percentage chance that a normal ambience selection uses custom music instead of vanilla music.",
-                new AcceptableValueRange<float>(0f, 100f)
+                new AcceptableValueRange<float>(
+                    0f,
+                    100f
+                )
             )
         );
 
@@ -72,21 +130,36 @@ public class OrbitousMusicMod : BaseUnityPlugin
         );
     }
 
+    // ============================================================
+    // CUSTOM TRACK LOADING
+    // ============================================================
+
     private void LoadCustomTracks(string modFolder)
     {
         customClips.Clear();
         customSongNames.Clear();
         trackWeights.Clear();
 
-        string[] files = Directory.GetFiles(modFolder, "*.wav");
+        string[] files =
+            Directory.GetFiles(
+                modFolder,
+                "*.wav"
+            );
 
         foreach (string filePath in files)
         {
-            string cleanSongName = Path.GetFileNameWithoutExtension(filePath);
+            string cleanSongName =
+                Path.GetFileNameWithoutExtension(
+                    filePath
+                );
 
             try
             {
-                AudioClip clip = LoadWavAsAudioClip(filePath, cleanSongName);
+                AudioClip clip =
+                    LoadWavAsAudioClip(
+                        filePath,
+                        cleanSongName
+                    );
 
                 if (clip == null)
                     continue;
@@ -94,17 +167,22 @@ public class OrbitousMusicMod : BaseUnityPlugin
                 customClips.Add(clip);
                 customSongNames.Add(cleanSongName);
 
-                ConfigEntry<float> weight = Config.Bind(
-                    "Track Weights",
-                    cleanSongName,
-                    1f,
-                    new ConfigDescription(
-                        "Relative chance for this track to be selected compared to other custom tracks.",
-                        new AcceptableValueRange<float>(0f, 100f)
-                    )
-                );
+                ConfigEntry<float> weight =
+                    Config.Bind(
+                        "Track Weights",
+                        cleanSongName,
+                        1f,
+                        new ConfigDescription(
+                            "Relative chance for this track to be selected compared to other custom tracks.",
+                            new AcceptableValueRange<float>(
+                                0f,
+                                100f
+                            )
+                        )
+                    );
 
-                trackWeights[cleanSongName] = weight;
+                trackWeights[cleanSongName] =
+                    weight;
 
                 Logger.LogInfo(
                     $"Cached custom track: {cleanSongName} | Weight: {weight.Value}"
@@ -118,6 +196,10 @@ public class OrbitousMusicMod : BaseUnityPlugin
             }
         }
     }
+
+    // ============================================================
+    // GUI
+    // ============================================================
 
     private void Update()
     {
@@ -139,7 +221,9 @@ public class OrbitousMusicMod : BaseUnityPlugin
         );
 
         string toggleStatus =
-            dynamicMusicEnabled ? "ENABLED" : "DISABLED";
+            dynamicMusicEnabled
+                ? "ENABLED"
+                : "DISABLED";
 
         GUI.Label(
             new Rect(20, 35, 270, 20),
@@ -152,7 +236,8 @@ public class OrbitousMusicMod : BaseUnityPlugin
                 ? "Disable Custom Music"
                 : "Enable Custom Music"))
         {
-            dynamicMusicEnabled = !dynamicMusicEnabled;
+            dynamicMusicEnabled =
+                !dynamicMusicEnabled;
 
             if (!dynamicMusicEnabled)
                 StopCustomMusic();
@@ -180,14 +265,16 @@ public class OrbitousMusicMod : BaseUnityPlugin
             $"Custom Volume: {Mathf.RoundToInt(modCustomVolume * 100f)}%"
         );
 
-        float previousVolume = modCustomVolume;
+        float previousVolume =
+            modCustomVolume;
 
-        modCustomVolume = GUI.HorizontalSlider(
-            new Rect(20, 192, 260, 15),
-            modCustomVolume,
-            0f,
-            1f
-        );
+        modCustomVolume =
+            GUI.HorizontalSlider(
+                new Rect(20, 192, 260, 15),
+                modCustomVolume,
+                0f,
+                1f
+            );
 
         if (previousVolume != modCustomVolume)
             SyncCustomAudioSourceVolume();
@@ -198,7 +285,8 @@ public class OrbitousMusicMod : BaseUnityPlugin
             modAudioSource.isPlaying &&
             modAudioSource.clip != null)
         {
-            trackDisplay = modAudioSource.clip.name;
+            trackDisplay =
+                modAudioSource.clip.name;
         }
 
         GUI.Label(
@@ -207,23 +295,42 @@ public class OrbitousMusicMod : BaseUnityPlugin
         );
     }
 
+    // ============================================================
+    // LOGGING
+    // ============================================================
+
     private static void Log(string message)
     {
         if (enableMusicLogging != null &&
             enableMusicLogging.Value &&
             Instance != null)
         {
-            Instance.Logger.LogInfo("[Music] " + message);
+            Instance.Logger.LogInfo(
+                "[Music] " + message
+            );
         }
     }
 
+    // ============================================================
+    // MANAGER
+    // ============================================================
+
+    private static void FindMusicManager()
+    {
+        if (ActiveMusicManagerInstance != null)
+            return;
+
+        ActiveMusicManagerInstance =
+            UnityEngine.Object.FindObjectOfType<musicManager>();
+    }
+
+    // ============================================================
+    // F5
+    // ============================================================
+
     private void ForceSkipTrack()
     {
-        if (ActiveMusicManagerInstance == null)
-        {
-            ActiveMusicManagerInstance =
-                UnityEngine.Object.FindObjectOfType<musicManager>();
-        }
+        FindMusicManager();
 
         if (ActiveMusicManagerInstance == null)
             return;
@@ -232,6 +339,10 @@ public class OrbitousMusicMod : BaseUnityPlugin
 
         PlayRandomCustomTrack();
     }
+
+    // ============================================================
+    // CUSTOM MUSIC SELECTION
+    // ============================================================
 
     private static void PlayRandomCustomTrack()
     {
@@ -244,15 +355,21 @@ public class OrbitousMusicMod : BaseUnityPlugin
             return;
         }
 
-        string selectedTrack = SelectWeightedCustomTrack();
+        string selectedTrack =
+            SelectWeightedCustomTrack();
 
         if (string.IsNullOrEmpty(selectedTrack))
         {
-            Log("Custom track selection failed because all track weights are 0.");
+            Log(
+                "Custom track selection failed because all track weights are 0."
+            );
+
             return;
         }
 
-        PlayCustomTrackDirectly(selectedTrack);
+        PlayCustomTrackDirectly(
+            selectedTrack
+        );
     }
 
     private static string SelectWeightedCustomTrack()
@@ -261,8 +378,12 @@ public class OrbitousMusicMod : BaseUnityPlugin
 
         foreach (string songName in customSongNames)
         {
-            if (!trackWeights.TryGetValue(songName, out ConfigEntry<float> weight))
+            if (!trackWeights.TryGetValue(
+                songName,
+                out ConfigEntry<float> weight))
+            {
                 continue;
+            }
 
             if (weight.Value > 0f)
                 totalWeight += weight.Value;
@@ -271,81 +392,145 @@ public class OrbitousMusicMod : BaseUnityPlugin
         if (totalWeight <= 0f)
             return null;
 
-        float roll = UnityEngine.Random.Range(0f, totalWeight);
+        float roll =
+            UnityEngine.Random.Range(
+                0f,
+                totalWeight
+            );
 
         foreach (string songName in customSongNames)
         {
-            if (!trackWeights.TryGetValue(songName, out ConfigEntry<float> weight))
+            if (!trackWeights.TryGetValue(
+                songName,
+                out ConfigEntry<float> weight))
+            {
                 continue;
+            }
 
             if (weight.Value <= 0f)
                 continue;
 
             roll -= weight.Value;
 
-            if (roll <= 0f)
+            if (roll < 0f)
                 return songName;
         }
 
-        return customSongNames[customSongNames.Count - 1];
+        return null;
     }
 
-    public static void PlayCustomTrackDirectly(string trackName)
+    // ============================================================
+    // PLAY CUSTOM MUSIC
+    // ============================================================
+
+    public static void PlayCustomTrackDirectly(
+        string trackName)
     {
         if (!dynamicMusicEnabled)
             return;
 
-        if (ActiveMusicManagerInstance == null)
-        {
-            ActiveMusicManagerInstance =
-                UnityEngine.Object.FindObjectOfType<musicManager>();
-        }
+        FindMusicManager();
 
         if (ActiveMusicManagerInstance == null)
             return;
 
-        int targetIndex = customSongNames.IndexOf(trackName);
+        int targetIndex =
+            customSongNames.IndexOf(
+                trackName
+            );
 
         if (targetIndex < 0 ||
             targetIndex >= customClips.Count)
         {
-            Log($"Could not find loaded custom track: {trackName}");
+            Log(
+                $"Could not find loaded custom track: {trackName}"
+            );
+
             return;
         }
 
         if (modAudioSource == null)
         {
             modAudioSource =
-                ActiveMusicManagerInstance.gameObject.AddComponent<AudioSource>();
+                ActiveMusicManagerInstance.gameObject
+                    .AddComponent<AudioSource>();
 
             modAudioSource.loop = false;
             modAudioSource.playOnAwake = false;
+            modAudioSource.spatialBlend = 0f;
         }
 
         StopCustomMusic();
 
-        modAudioSource.clip = customClips[targetIndex];
+        /*
+         * Stop normal ambience before starting custom music.
+         *
+         * We do NOT call StopBackgroundMusic() here because that
+         * would go through our Harmony patch again.
+         */
+        StopVanillaBackgroundMusic(
+            ActiveMusicManagerInstance
+        );
+
+        modAudioSource.clip =
+            customClips[targetIndex];
 
         SyncCustomAudioSourceVolume();
 
         modAudioSource.Play();
 
-        Log($"Started custom track: {trackName}");
+        Log(
+            $"Started custom track: {trackName}"
+        );
     }
+
+    // ============================================================
+    // STOP CUSTOM MUSIC
+    // ============================================================
 
     public static void StopCustomMusic()
     {
-        if (modAudioSource != null)
-        {
-            if (modAudioSource.isPlaying)
-            {
-                Log("Stopped custom music.");
-                modAudioSource.Stop();
-            }
+        if (modAudioSource == null)
+            return;
 
-            modAudioSource.clip = null;
+        if (modAudioSource.isPlaying)
+        {
+            Log(
+                "Stopped custom music."
+            );
+
+            modAudioSource.Stop();
+        }
+
+        modAudioSource.clip = null;
+    }
+
+    // ============================================================
+    // STOP VANILLA AMBIENCE
+    // ============================================================
+
+    private static void StopVanillaBackgroundMusic(
+        musicManager manager)
+    {
+        if (manager == null ||
+            manager.audioManager == null ||
+            manager.songs == null)
+        {
+            return;
+        }
+
+        foreach (string song in manager.songs)
+        {
+            if (!string.IsNullOrEmpty(song))
+            {
+                manager.audioManager.Stop(song);
+            }
         }
     }
+
+    // ============================================================
+    // VOLUME
+    // ============================================================
 
     public static void SyncCustomAudioSourceVolume()
     {
@@ -353,22 +538,39 @@ public class OrbitousMusicMod : BaseUnityPlugin
             return;
 
         float musicMultiplier = 1f;
+        float masterMultiplier = 1f;
 
         if (ActiveMusicManagerInstance != null)
         {
             musicMultiplier =
-                ActiveMusicManagerInstance.GetMusicVolumeMult();
+                ActiveMusicManagerInstance
+                    .GetMusicVolumeMult();
+
+            if (ActiveMusicManagerInstance.audioManager != null)
+            {
+                masterMultiplier =
+                    ActiveMusicManagerInstance
+                        .audioManager
+                        .GetMasterVolumeMult();
+            }
         }
 
         modAudioSource.volume =
             modCustomVolume *
-            musicMultiplier;
+            musicMultiplier *
+            masterMultiplier;
     }
 
-    private static bool IsCustomTrack(string name)
+    // ============================================================
+    // TRACK CHECKS
+    // ============================================================
+
+    private static bool IsCustomTrack(
+        string name)
     {
-        return !string.IsNullOrEmpty(name) &&
-               customSongNames.Contains(name);
+        return
+            !string.IsNullOrEmpty(name) &&
+            customSongNames.Contains(name);
     }
 
     private static bool IsNormalAmbienceSong(
@@ -382,7 +584,9 @@ public class OrbitousMusicMod : BaseUnityPlugin
             return false;
         }
 
-        for (int i = 0; i < manager.songs.Length; i++)
+        for (int i = 0;
+             i < manager.songs.Length;
+             i++)
         {
             if (manager.songs[i] == songName)
                 return true;
@@ -399,36 +603,59 @@ public class OrbitousMusicMod : BaseUnityPlugin
         if (customSongNames.Count == 0)
             return false;
 
-        float roll = UnityEngine.Random.Range(0f, 100f);
+        float roll =
+            UnityEngine.Random.Range(
+                0f,
+                100f
+            );
 
-        bool result = roll < customMusicChance.Value;
+        bool result =
+            roll < customMusicChance.Value;
 
         Log(
             $"Custom music roll: {roll:0.00} / " +
             $"{customMusicChance.Value:0.00} -> " +
-            (result ? "CUSTOM" : "VANILLA")
+            (result
+                ? "CUSTOM"
+                : "VANILLA")
         );
 
         return result;
     }
 
+    // ============================================================
+    // WAV LOADER
+    // ============================================================
+
     private static AudioClip LoadWavAsAudioClip(
         string filePath,
         string clipName)
     {
-        byte[] fileBytes = File.ReadAllBytes(filePath);
+        byte[] fileBytes =
+            File.ReadAllBytes(filePath);
 
         if (fileBytes.Length < 44)
-            throw new Exception("WAV file is too small.");
+            throw new Exception(
+                "WAV file is too small."
+            );
 
         ushort audioChannels =
-            BitConverter.ToUInt16(fileBytes, 22);
+            BitConverter.ToUInt16(
+                fileBytes,
+                22
+            );
 
         int frequencySampleRate =
-            BitConverter.ToInt32(fileBytes, 24);
+            BitConverter.ToInt32(
+                fileBytes,
+                24
+            );
 
         ushort bitsPerSample =
-            BitConverter.ToUInt16(fileBytes, 34);
+            BitConverter.ToUInt16(
+                fileBytes,
+                34
+            );
 
         if (bitsPerSample != 16)
         {
@@ -441,7 +668,9 @@ public class OrbitousMusicMod : BaseUnityPlugin
         int dataOffset = 12;
         int dataSize = 0;
 
-        while (dataOffset + 8 <= fileBytes.Length)
+        while (
+            dataOffset + 8 <=
+            fileBytes.Length)
         {
             string chunkID =
                 System.Text.Encoding.ASCII.GetString(
@@ -463,18 +692,24 @@ public class OrbitousMusicMod : BaseUnityPlugin
                 break;
             }
 
-            dataOffset += 8 + chunkSize;
+            dataOffset +=
+                8 + chunkSize;
         }
 
         if (dataSize <= 0)
-            throw new Exception("WAV data chunk was not found.");
+            throw new Exception(
+                "WAV data chunk was not found."
+            );
 
-        int sampleCount = dataSize / 2;
+        int sampleCount =
+            dataSize / 2;
 
         float[] soundBuffer =
             new float[sampleCount];
 
-        for (int i = 0; i < sampleCount; i++)
+        for (int i = 0;
+             i < sampleCount;
+             i++)
         {
             short sample =
                 BitConverter.ToInt16(
@@ -489,154 +724,146 @@ public class OrbitousMusicMod : BaseUnityPlugin
         AudioClip clip =
             AudioClip.Create(
                 clipName,
-                sampleCount / audioChannels,
+                sampleCount /
+                    audioChannels,
                 audioChannels,
                 frequencySampleRate,
                 false
             );
 
-        clip.SetData(soundBuffer, 0);
+        clip.SetData(
+            soundBuffer,
+            0
+        );
 
         return clip;
     }
 
-    [HarmonyPatch(typeof(musicManager), "Awake")]
+    // ============================================================
+    // MUSIC MANAGER AWAKE
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(musicManager),
+        "Awake"
+    )]
     public static class MusicManagerAwakePatch
     {
-        private static void Postfix(musicManager __instance)
+        private static void Postfix(
+            musicManager __instance)
         {
-            ActiveMusicManagerInstance = __instance;
+            ActiveMusicManagerInstance =
+                __instance;
 
-            Log("Found Orbitous music manager.");
+            Log(
+                "Found Orbitous music manager."
+            );
         }
     }
 
-    /*
-     * Orbitous calls musicManager.PlaySong() whenever it
-     * wants to start music.
-     *
-     * If the requested song is one of the normal ambience
-     * songs, we use our custom-music chance first.
-     *
-     * Special music such as:
-     * ShopSong
-     * CoolSong
-     * ChaseSong
-     * IntroFightSong
-     * HunterSong
-     * BlackHoleSong
-     * CreditsSong
-     *
-     * is NOT in manager.songs, so it passes through normally.
-     */
-    [HarmonyPatch(typeof(musicManager), "PlaySong")]
+    // ============================================================
+    // PLAY SONG
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(musicManager),
+        "PlaySong"
+    )]
     public static class MusicManagerPlaySongPatch
     {
         private static bool Prefix(
             musicManager __instance,
             string songString)
         {
-            ActiveMusicManagerInstance = __instance;
+            ActiveMusicManagerInstance =
+                __instance;
 
-            // Shop music ALWAYS takes priority.
-            if (songString == "ShopSong")
-            {
-                StopCustomMusic();
-                __instance.StopBackgroundMusic();
-
+            if (string.IsNullOrEmpty(songString))
                 return true;
-            }
 
-            // Other special music also takes priority over custom ambience.
-            if (IsSpecialMusic(songString))
-            {
-                StopCustomMusic();
-                __instance.StopBackgroundMusic();
-
-                return true;
-            }
-
-            // Custom track requested directly.
+            /*
+             * Custom tracks should never normally reach this
+             * method, but keep this protection here anyway.
+             */
             if (IsCustomTrack(songString))
             {
-                PlayCustomTrackDirectly(songString);
+                PlayCustomTrackDirectly(
+                    songString
+                );
+
                 return false;
             }
 
-            // Only normal ambience songs are eligible for replacement.
-            if (!IsNormalAmbienceSong(__instance, songString))
-                return true;
+            /*
+             * Special music:
+             *
+             * ShopSong
+             * CoolSong
+             * ChaseSong
+             * etc.
+             *
+             * Always interrupt custom ambience.
+             */
+            if (priorityMusic.Contains(songString))
+            {
+                StopCustomMusic();
 
-            // Let vanilla play if the custom-music roll fails.
+                Log(
+                    $"Priority music started: {songString}"
+                );
+
+                return true;
+            }
+
+            /*
+             * Only normal ambience songs are eligible for
+             * replacement with custom music.
+             */
+            if (!IsNormalAmbienceSong(
+                __instance,
+                songString))
+            {
+                return true;
+            }
+
+            /*
+             * If the custom roll fails, allow Orbitous to
+             * play its normal vanilla song.
+             */
             if (!ShouldUseCustomMusic())
                 return true;
 
-            // Replace this normal ambience track with a custom one.
-            StopCustomMusic();
-
+            /*
+             * Custom music won the roll.
+             *
+             * Prevent the vanilla PlaySong() from executing.
+             */
             PlayRandomCustomTrack();
 
             return false;
         }
-
-        private static bool IsSpecialMusic(string songName)
-        {
-            return songName == "ShopSong" ||
-                   songName == "CoolSong" ||
-                   songName == "ChaseSong" ||
-                   songName == "IntroFightSong" ||
-                   songName == "HunterSong" ||
-                   songName == "BlackHoleSong" ||
-                   songName == "CreditsSong";
-        }
     }
 
-    /*
-     * StopBackgroundMusic() is used by Orbitous when it
-     * reaches a point where normal ambience should stop.
-     *
-     * We let the original method stop vanilla music and
-     * additionally stop our custom AudioSource.
-     */
-    [HarmonyPatch(typeof(musicManager), "StopBackgroundMusic")]
-    public static class StopBackgroundMusicPatch
-    {
-        private static void Prefix()
-        {
-            StopCustomMusic();
-        }
-    }
+    // ============================================================
+    // MUSIC PLAYING
+    // ============================================================
 
-    /*
-     * Some special music uses musicManager.StopSong().
-     * If the song being stopped is custom, stop our source.
-     */
-    [HarmonyPatch(typeof(musicManager), "StopSong")]
-    public static class StopSongPatch
-    {
-        private static bool Prefix(string songString)
-        {
-            if (!IsCustomTrack(songString))
-                return true;
-
-            StopCustomMusic();
-
-            return false;
-        }
-    }
-
-    /*
-     * musicManager.MusicPlaying() normally checks every
-     * entry in musicManager.songs through audioManager.
-     *
-     * Our custom tracks are deliberately NOT in that array,
-     * so we add our AudioSource to the result.
-     */
-    [HarmonyPatch(typeof(musicManager), "MusicPlaying")]
+    [HarmonyPatch(
+        typeof(musicManager),
+        "MusicPlaying"
+    )]
     public static class MusicPlayingPatch
     {
-        private static void Postfix(ref bool __result)
+        private static void Postfix(
+            ref bool __result)
         {
+            /*
+             * Custom ambience counts as active music.
+             *
+             * This keeps the normal background music system
+             * from starting another ambience track while our
+             * custom track is playing.
+             */
             if (modAudioSource != null &&
                 modAudioSource.isPlaying)
             {
@@ -645,17 +872,79 @@ public class OrbitousMusicMod : BaseUnityPlugin
         }
     }
 
-    /*
-     * Orbitous normally does:
-     *
-     * audioManager.ChangeSingleVolume(currentSong, ...)
-     *
-     * That would crash if currentSong were a custom track.
-     *
-     * We therefore handle the musicManager volume change
-     * ourselves while custom music is playing.
-     */
-    [HarmonyPatch(typeof(musicManager), "SetMusicVolume")]
+    // ============================================================
+    // STOP BACKGROUND MUSIC
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(musicManager),
+        "StopBackgroundMusic"
+    )]
+    public static class StopBackgroundMusicPatch
+    {
+        private static void Prefix()
+        {
+            StopCustomMusic();
+        }
+    }
+
+    // ============================================================
+    // END MUSIC CYCLE
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(musicManager),
+        "EndMusicCycle"
+    )]
+    public static class EndMusicCyclePatch
+    {
+        private static void Prefix()
+        {
+            StopCustomMusic();
+        }
+    }
+
+    // ============================================================
+    // STOP SONG
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(musicManager),
+        "StopSong"
+    )]
+    public static class StopSongPatch
+    {
+        private static void Prefix(
+            string songString)
+        {
+            /*
+             * Special music should stop custom music too.
+             */
+            if (priorityMusic.Contains(
+                songString))
+            {
+                StopCustomMusic();
+            }
+
+            /*
+             * Protection in case something explicitly tries
+             * to stop a custom track.
+             */
+            if (IsCustomTrack(songString))
+            {
+                StopCustomMusic();
+            }
+        }
+    }
+
+    // ============================================================
+    // MUSIC VOLUME
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(musicManager),
+        "SetMusicVolume"
+    )]
     public static class SetMusicVolumePatch
     {
         private static bool Prefix(
@@ -668,7 +957,16 @@ public class OrbitousMusicMod : BaseUnityPlugin
                 return true;
             }
 
-            __instance.musicVolume = newVol;
+            /*
+             * The original method would do:
+             *
+             * ChangeSingleVolume(currentSong, ...)
+             *
+             * which can crash if currentSong refers to a
+             * custom track that doesn't exist in audioManager.sounds.
+             */
+            __instance.musicVolume =
+                newVol;
 
             SyncCustomAudioSourceVolume();
 
@@ -676,15 +974,34 @@ public class OrbitousMusicMod : BaseUnityPlugin
         }
     }
 
-    /*
-     * If vanilla Orbitous audio starts playing a sound that
-     * is also part of the musicManager's ambience playlist,
-     * stop custom music first.
-     *
-     * This mainly protects against another code path starting
-     * normal music without going through PlaySong().
-     */
-    [HarmonyPatch(typeof(audioManager), "Play", new Type[] { typeof(string) })]
+    // ============================================================
+    // MASTER VOLUME
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(audioManager),
+        "ChangeMasterVolume"
+    )]
+    public static class ChangeMasterVolumePatch
+    {
+        private static void Postfix()
+        {
+            SyncCustomAudioSourceVolume();
+        }
+    }
+
+    // ============================================================
+    // DIRECT AUDIO PLAY
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(audioManager),
+        "Play",
+        new Type[]
+        {
+            typeof(string)
+        }
+    )]
     public static class AudioManagerPlayPatch
     {
         private static void Prefix(
@@ -693,52 +1010,117 @@ public class OrbitousMusicMod : BaseUnityPlugin
             if (ActiveMusicManagerInstance == null)
                 return;
 
+            /*
+             * If vanilla ambience starts through another
+             * code path, stop custom music.
+             */
             if (IsNormalAmbienceSong(
                 ActiveMusicManagerInstance,
                 name))
             {
                 StopCustomMusic();
+
                 return;
             }
 
             /*
-             * Special music should also interrupt custom music.
-             * These are the known musicManager special tracks
-             * from the Orbitous dump.
+             * Special music always has priority.
              */
-            if (name == "ShopSong" ||
-                name == "CoolSong" ||
-                name == "ChaseSong" ||
-                name == "IntroFightSong" ||
-                name == "HunterSong" ||
-                name == "BlackHoleSong" ||
-                name == "CreditsSong")
+            if (priorityMusic.Contains(name))
             {
                 StopCustomMusic();
             }
         }
     }
 
-    /*
-     * If the game directly asks audioManager.Stop() to stop
-     * a music track, also make sure custom ambience is stopped
-     * for the relevant music names.
-     */
-    [HarmonyPatch(typeof(audioManager), "Stop")]
+    // ============================================================
+    // DIRECT AUDIO STOP
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(audioManager),
+        "Stop"
+    )]
     public static class AudioManagerStopPatch
     {
-        private static void Prefix(string name)
+        private static void Prefix(
+            string name)
         {
-            if (name == "ShopSong" ||
-                name == "CoolSong" ||
-                name == "ChaseSong" ||
-                name == "IntroFightSong" ||
-                name == "HunterSong" ||
-                name == "BlackHoleSong" ||
-                name == "CreditsSong")
+            /*
+             * Stopping a special song should not leave custom
+             * ambience running underneath it.
+             */
+            if (priorityMusic.Contains(name))
             {
                 StopCustomMusic();
             }
+        }
+    }
+
+    // ============================================================
+    // SHOP ENTRY FIX
+    // ============================================================
+
+    [HarmonyPatch(
+        typeof(player),
+        "OnTriggerEnter2D"
+    )]
+    public static class PlayerShopMusicPatch
+    {
+        private static void Prefix(
+            Collider2D collider)
+        {
+            if (collider == null)
+                return;
+
+            /*
+             * Orbitous does:
+             *
+             * if (!musicManager.MusicPlaying())
+             * {
+             *     musicManager.PlaySong("ShopSong");
+             * }
+             *
+             * Since we correctly report custom music as playing,
+             * that check would prevent ShopSong from starting.
+             *
+             * Therefore we handle the shop transition here.
+             */
+
+            shopField shop =
+                collider.GetComponent<shopField>();
+
+            if (shop == null)
+                return;
+
+            FindMusicManager();
+
+            if (ActiveMusicManagerInstance == null)
+                return;
+
+            /*
+             * Stop both types of normal ambience.
+             */
+            StopCustomMusic();
+
+            StopVanillaBackgroundMusic(
+                ActiveMusicManagerInstance
+            );
+
+            /*
+             * Start ShopSong before the original method reaches
+             * its MusicPlaying() check.
+             *
+             * The original code then sees ShopSong already playing
+             * and won't start it a second time.
+             */
+            ActiveMusicManagerInstance.PlaySong(
+                "ShopSong"
+            );
+
+            Log(
+                "Entered shop: stopped ambience and started ShopSong."
+            );
         }
     }
 }
